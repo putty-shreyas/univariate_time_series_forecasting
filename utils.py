@@ -13,7 +13,9 @@ import matplotlib.pyplot as plt
 
 from torch.utils.data import TensorDataset
 
-def generate_data(basic: bool, num_points: int = None, trend: float = 0.02):
+def generate_data(basic: bool, num_points: int = None,
+                  results_path = None, trend: float = 0.02):
+    
     # Generate a time series with random fluctuations
     
     if basic:
@@ -29,11 +31,11 @@ def generate_data(basic: bool, num_points: int = None, trend: float = 0.02):
             value = time_series[i - 1] + direction[i - 1] * trend + np.random.normal(scale=5)
             time_series.append(round(value, 6))
     
-    plot_ts_data(time_series, data_split = "Original Timeseries")
+    plot_ts_data(time_series, results_path, data_split = "Original Timeseries")
     
     return np.array(time_series).reshape(-1,1)
 
-def plot_ts_data(time_series, data_split: str):
+def plot_ts_data(time_series, results_path, data_split: str):
     
     # Plot the generated time series
     plt.grid()
@@ -42,10 +44,11 @@ def plot_ts_data(time_series, data_split: str):
     plt.xlabel('Days')
     plt.ylabel('Values')
     plt.legend()
-    plt.show()
+    plt.savefig(os.path.join(results_path, f"{data_split}.png"), dpi = 400)
+    plt.close()
 
 # preparing independent and dependent features
-def prepare_data(timeseries_data, lookback):
+def prepare_windowed_data(timeseries_data, lookback):
     X, y =[],[]
     for i in range(len(timeseries_data)):
         # find the end of this pattern
@@ -219,7 +222,8 @@ def final_transformation(scaler, tensor):
     
     return rev_scaled_pred
 
-def final_results(timeseries_data, future_pred, final_df, scaler, future_steps):
+def final_results(timeseries_data, future_pred, final_df,
+                  scaler, future_steps, results_path):
     
     test_labels = final_transformation(scaler, torch.FloatTensor(final_df["Actual"]).reshape(-1,1))
     # print("labels", labels)
@@ -242,7 +246,8 @@ def final_results(timeseries_data, future_pred, final_df, scaler, future_steps):
     plt.plot(future_days,fut_fin_pred.squeeze(), color = "r", label = "future prediction")
     plt.title("Quantity Forecast Prediction")
     plt.legend(loc = "best")
-    plt.show()
+    plt.savefig(os.path.join(results_path, "quantity_forecast_prediction.png"),
+                dpi = 400)
     plt.close()
 
     plt.xlabel("Days")
@@ -252,7 +257,7 @@ def final_results(timeseries_data, future_pred, final_df, scaler, future_steps):
     plt.plot(test_predictions, color = 'r', label = "Predictions")
     plt.title("Model Performance")
     plt.legend(loc = "best")
-    plt.show()
+    plt.savefig(os.path.join(results_path, "model_performance.png"), dpi = 400)
     plt.close()
     
     return timeseries_data, fut_fin_pred

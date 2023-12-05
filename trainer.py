@@ -42,7 +42,8 @@ else:
     lr = 1e-3
 
 # define input sequence
-timeseries_data = utils.generate_data(basic = basic, num_points = num_points)
+timeseries_data = utils.generate_data(basic = basic, num_points = num_points,
+                                      results_path = results_path)
 print("timeseries_data -> ",  timeseries_data.shape)
 
 scaler = MinMaxScaler(feature_range = (-1,1))
@@ -58,15 +59,15 @@ train_data, test_data = timeseries_data[0:training_size], timeseries_data[traini
 print("train_data -> ", train_data.shape)
 print("test_data -> ", test_data.shape)
 
-utils.plot_ts_data(train_data, data_split = "Train")
-utils.plot_ts_data(test_data, data_split = "Test")
+utils.plot_ts_data(train_data, results_path, data_split = "Train")
+utils.plot_ts_data(test_data, results_path, data_split = "Test")
 
 # split into samples
-X_train, y_train = utils.prepare_data(train_data, lookback)
+X_train, y_train = utils.prepare_windowed_data(train_data, lookback)
 print("X_train -> ", X_train.shape)
 print("y_train -> ", y_train.shape)
 
-X_test, y_test = utils.prepare_data(test_data, lookback)
+X_test, y_test = utils.prepare_windowed_data(test_data, lookback)
 print("X_test -> ", X_test.shape)
 print("y_test -> ", y_test.shape)
 
@@ -111,7 +112,12 @@ loaded_model = utils.load_model(results_path)
 
 future_pred = utils.predict_future(loaded_model, Val_x_input, lookback, future_steps)
 
-timeseries_data, fut_fin_pred  = utils.final_results(timeseries_data, future_pred, final_df, scaler, future_steps)
+timeseries_data, fut_fin_pred  = utils.final_results(timeseries_data,
+                                                     future_pred,
+                                                     final_df,
+                                                     scaler,
+                                                     future_steps,
+                                                     results_path)
 
 utils.final_excel(timeseries_data, results_path, name = "original_timeseries")
 utils.final_excel(fut_fin_pred, results_path, name = "future_timeseries")

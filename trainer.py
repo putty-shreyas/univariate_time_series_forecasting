@@ -59,8 +59,14 @@ train_data, test_data = timeseries_data[0:training_size], timeseries_data[traini
 print("train_data -> ", train_data.shape)
 print("test_data -> ", test_data.shape)
 
-utils.plot_ts_data(train_data, results_path, data_split = "Train")
-utils.plot_ts_data(test_data, results_path, data_split = "Test")
+utils.plot_ts_data(time_series = train_data,
+                   results_path = results_path,
+                   data_split = "Training"
+                   )
+utils.plot_ts_data(time_series = test_data,
+                   results_path = results_path,
+                   data_split = "Testing"
+                   )
 
 # split into samples
 X_train, y_train = utils.prepare_windowed_data(train_data, lookback)
@@ -87,13 +93,19 @@ optimizer = optim.Adam(params = model.parameters(),
                        lr = lr)
 
 best_loss = float('inf')
+train_losses = []
+test_losses = []
+
 
 for epoch in range(epochs):
     train_loss = utils.train(train_loader, model, optimizer, criterion)
     test_loss, test_preds_all, test_labels_all = utils.test(test_loader,
                                                             model,
                                                             criterion)
-    if epoch % 5 == 0:
+    train_losses.append(train_loss)
+    test_losses.append(test_loss)
+    
+    if epoch % 10 == 0:
         print(f"\nEpoch : {epoch}\tTr loss : {round(train_loss, 6)}\tTe loss : {round(test_loss, 6)}\n")
     
     if test_loss < best_loss:
@@ -103,6 +115,8 @@ for epoch in range(epochs):
         best_pred_dict = {"Actual" : test_labels_all,
                           "Predicted" : test_preds_all}
         
+utils.plot_losses(results_path = results_path, loss = train_losses)
+utils.plot_losses(results_path = results_path, loss = test_losses, train = False)
 
 final_df = pd.DataFrame({**best_pred_dict})
 

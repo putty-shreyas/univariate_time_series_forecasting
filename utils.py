@@ -17,7 +17,6 @@ def generate_data(basic: bool, num_points: int = None,
                   results_path = None, trend: float = 0.02):
     
     # Generate a time series with random fluctuations
-    
     if basic:
         time_series = [110, 212, 133, 146, 100, 172, 233, 196, 210,
                        233, 245, 110, 139, 122, 200, 211, 222, 230]
@@ -35,16 +34,19 @@ def generate_data(basic: bool, num_points: int = None,
     
     return np.array(time_series).reshape(-1,1)
 
-def plot_ts_data(time_series, results_path, data_split: str):
+def plot_ts_data(time_series = None,
+                 results_path: str = None,
+                 data_split: str = None
+                 ):
+    # Plot the time series
     
-    # Plot the generated time series
     plt.grid()
     plt.plot(time_series, label = f"{data_split} data")
-    plt.title(f'Randomly Varying Time Series - {data_split}')
+    plt.title(f'Randomly Varying Time Series - {data_split} data')
     plt.xlabel('Days')
     plt.ylabel('Values')
     plt.legend()
-    plt.savefig(os.path.join(results_path, f"{data_split}.png"), dpi = 400)
+    plt.savefig(os.path.join(results_path, f"{data_split.lower()}_data.png"), dpi = 400)
     plt.close()
 
 # preparing independent and dependent features
@@ -53,16 +55,17 @@ def prepare_windowed_data(timeseries_data, lookback):
     for i in range(len(timeseries_data)):
         # find the end of this pattern
         end_ix = i + lookback
-        # print("1 :", end_ix)
+        
         # check if we are beyond the sequence
         if end_ix > len(timeseries_data)-1:
-            # print("2 :", end_ix)
             break
+        
         # gather input and output parts of the pattern
         seq_x, seq_y = timeseries_data[i:end_ix], timeseries_data[end_ix]
-        # print(seq_x, seq_y)
+
         X.append(seq_x)
         y.append(seq_y)
+        
     return np.array(X), np.array(y)
 
 def dataset_preparation(X, y):
@@ -88,7 +91,7 @@ class VanillaLSTM(nn.Module):
         
         self.fc1 = nn.Linear(hidden_dim, hidden_dim // 2)
         self.fc2 = nn.Linear(hidden_dim // 2, output_dim)
-        self.relu = nn.LeakyReLU()
+        self.lrelu = nn.LeakyReLU()
         
     def forward(self, x):
         h0 = torch.zeros(self.n_layers, 
@@ -99,14 +102,10 @@ class VanillaLSTM(nn.Module):
                           self.hidden_dim).requires_grad_()
         
         out, (hn, cn) = self.lstm(x, (h0.detach(), c0.detach()))
-        # print("out", out.shape)
-        # print("hn", hn.shape)
         
-        hn = self.relu(hn.view(-1, self.hidden_dim))
-        # print("hn2", hn.shape)
+        hn = self.lrelu(hn.view(-1, self.hidden_dim))
         
-        output = self.fc2(self.relu(self.fc1(hn)))
-        # print("output", output.shape)
+        output = self.fc2(self.lrelu(self.fc1(hn)))
         
         return output
     
@@ -116,16 +115,11 @@ def train(train_loader, model, optimizer, criterion):
     model.train()
     
     for i, (inputs, labels) in enumerate(train_loader):
-        
-        optimizer.zero_grad()
-        
-        # print("inputs", inputs.shape)
-        # print("labels", labels.shape)
-        pred = model(inputs)
-        # print("pred", pred.shape)
-        loss = criterion(pred, labels)
-        # print("loss", loss.shape)
 
+        optimizer.zero_grad()
+        pred = model(inputs)
+
+        loss = criterion(pred, labels)
         losses.append(loss.item())
         
         loss.backward()
@@ -146,12 +140,9 @@ def test(test_loader, model, criterion):
     with torch.no_grad():
         for i, (inputs, labels) in enumerate(test_loader):
         
-            # print("inputs", inputs.shape)
-            # print("labels", labels.shape)
             pred = model(inputs)
-            # print("pred", pred.shape)
+
             loss = criterion(pred, labels)
-            # print("loss", loss.shape)
             losses.append(loss.item())
             
             pred = pred.detach()
@@ -188,7 +179,7 @@ def load_model(results_path):
     return loaded_model
 
 def predict_future(model, x_input, lookback, future_steps):
-    # Convert the initial input to a PyTorch tensor
+
     x_input = x_input.view(1, lookback, 1)
     
     temp_input = x_input.view(-1).tolist()
@@ -198,10 +189,8 @@ def predict_future(model, x_input, lookback, future_steps):
         for i in range(future_steps):
             if len(temp_input) > lookback:
                 x_input = torch.tensor(temp_input[1:], dtype=torch.float32).view(1, lookback, 1)
-                # print("{} day input {}".format(i, x_input.view(-1).tolist()))
     
                 yhat = model(x_input)
-                # print("{} day output {}".format(i, yhat.view(-1).tolist()))
     
                 temp_input.append(yhat.item())
                 temp_input = temp_input[1:]
@@ -209,7 +198,6 @@ def predict_future(model, x_input, lookback, future_steps):
             else:
                 x_input = torch.tensor(temp_input, dtype=torch.float32).view(1, lookback, 1)
                 yhat = model(x_input)
-                # print("{} day output {}".format(i, yhat.view(-1).tolist()))
     
                 temp_input.append(yhat.item())
                 lst_output.append(yhat.item())
@@ -222,15 +210,25 @@ def final_transformation(scaler, tensor):
     
     return rev_scaled_pred
 
+def plot_losses(results_path: str, loss: list, train: bool = True):
+       
+    task = ['Training' if train else 'Testing'][0]
+    
+    plt.plot(loss)
+    plt.title(f"{task}_Losses")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.grid()
+    plt.savefig(os.path.join(results_path, f"{task.lower()}_losses.png"),
+                dpi = 400)
+    plt.close()
+
 def final_results(timeseries_data, future_pred, final_df,
                   scaler, future_steps, results_path):
     
     test_labels = final_transformation(scaler, torch.FloatTensor(final_df["Actual"]).reshape(-1,1))
-    # print("labels", labels)
-    # print("+"*50)
+    
     test_predictions = final_transformation(scaler, torch.FloatTensor(final_df["Predicted"]).reshape(-1,1))
-    # print("predictions", predictions)
-    # print("+"*50)
 
     fut_fin_pred = final_transformation(scaler, torch.FloatTensor(future_pred).reshape(-1,1))
     
@@ -265,38 +263,7 @@ def final_results(timeseries_data, future_pred, final_df,
 def final_excel(timeseries_data, result_path, name:str):
     
     timeseries_data = timeseries_data.squeeze()
-    df = pd.DataFrame({
-                        "Quantity": timeseries_data})
+    df = pd.DataFrame({"Quantity": timeseries_data})
     df.index.name = "Time"
     
     df.to_excel(os.path.join(result_path, f"{name}.xlsx"))
-
-# =============================================================================
-# # demonstrate prediction for next 10 days
-# x_input = final_df["Actual"][-3:]
-# temp_input=x_input
-# lst_output=[]
-# i=0
-# while(i<10):
-#     
-#     if(len(temp_input)>3):
-#         x_input=array(temp_input[1:])
-#         print("{} day input {}".format(i,x_input))
-#         #print(x_input)
-#         x_input = x_input.reshape((1, n_steps, n_features))
-#         #print(x_input)
-#         yhat = model.predict(x_input, verbose=0)
-#         print("{} day output {}".format(i,yhat))
-#         temp_input.append(yhat[0][0])
-#         temp_input=temp_input[1:]
-#         #print(temp_input)
-#         lst_output.append(yhat[0][0])
-#         i=i+1
-#     else:
-#         x_input = x_input.reshape((1, n_steps, n_features))
-#         yhat = model.predict(x_input, verbose=0)
-#         print(yhat[0])
-#         temp_input.append(yhat[0][0])
-#         lst_output.append(yhat[0][0])
-#         i=i+1
-# =============================================================================

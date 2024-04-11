@@ -3,7 +3,7 @@
 Time Series Forecasting task performed on Univariate timeseries data using Vanilla LSTM architecture. Purpose of the project was to build a clean and efficient Python-based Deep Learning project with generated timeseries data and effective results storing. Model validation showcased through future forecasting of the data
 
 ## Features 
- - Option to generate random univariate timeseries data with varying trends or work with basic time series data to show efficient code operation
+ - Option to generate random univariate timeseries data with varying trends or work with basic timeseries data to show efficient code operation
  - Future prediction of timeseries data highlighted and showcased
 
 ## Results and Summary 
